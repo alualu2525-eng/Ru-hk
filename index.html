@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Planner Pro</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-blue-50">
+    <div id="app" class="max-w-md mx-auto min-h-screen pb-24 relative bg-white shadow-xl">
+        
+        <header class="bg-blue-600 p-6 text-white rounded-b-3xl shadow-lg">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold">我的旅程</h1>
+                    <p class="text-blue-100 text-sm">
+                        <i class="fas fa-cloud-sun mr-1"></i> 今日天氣：24°C 晴天
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-blue-400 rounded-full flex items-center justify-center">
+                    <i class="fas fa-plane"></i>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-4">
+            
+            <section v-if="activeTab === 'itinerary'" class="space-y-4">
+                <h2 class="text-xl font-bold text-blue-800">行程安排</h2>
+                <div v-for="item in itinerary" :key="item.time" class="bg-white border-l-4 border-blue-500 p-4 rounded-r-xl shadow-sm flex justify-between items-center">
+                    <div>
+                        <span class="text-xs text-blue-500 font-bold uppercase">{{ item.time }}</span>
+                        <h3 class="font-semibold text-gray-800">{{ item.location }}</h3>
+                    </div>
+                    <button @click="openMap(item.location)" class="text-blue-600 p-2 hover:bg-blue-50 rounded-full">
+                        <i class="fas fa-directions text-xl"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'finance'" class="space-y-4">
+                <h2 class="text-xl font-bold text-blue-800">旅遊支出</h2>
+                <div class="bg-blue-600 p-4 rounded-2xl text-white shadow-md">
+                    <p class="text-sm opacity-80">總支出</p>
+                    <p class="text-3xl font-bold">${{ totalExpense }}</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 space-y-3">
+                    <input v-model="newExpense.item" type="text" placeholder="支出項目" class="w-full p-2 border rounded-lg focus:outline-blue-500">
+                    <div class="flex gap-2">
+                        <input v-model.number="newExpense.amount" type="number" placeholder="金額" class="w-1/2 p-2 border rounded-lg">
+                        <select v-model="newExpense.method" class="w-1/2 p-2 border rounded-lg bg-white">
+                            <option value="現金">現金</option>
+                            <option value="信用卡">信用卡</option>
+                            <option value="電子支付">電子支付</option>
+                        </select>
+                    </div>
+                    <button @click="addExpense" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold">新增支出</button>
+                </div>
+
+                <div class="space-y-2">
+                    <div v-for="exp in expenses" class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                        <span>{{ exp.item }} <small class="text-gray-400">({{ exp.method }})</small></span>
+                        <span class="font-bold text-blue-700">${{ exp.amount }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'lists'" class="space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-blue-800 mb-3">行李清單</h2>
+                    <div class="grid grid-cols-1 gap-2">
+                        <label v-for="item in packingList" :key="item.name" class="flex items-center p-3 bg-white rounded-xl shadow-sm">
+                            <input type="checkbox" v-model="item.done" class="w-5 h-5 text-blue-600 rounded">
+                            <span :class="{'line-through text-gray-400': item.done}" class="ml-3">{{ item.name }}</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 flex justify-around p-3 safe-area-bottom shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+            <button @click="activeTab = 'itinerary'" :class="activeTab === 'itinerary' ? 'text-blue-600' : 'text-gray-400'" class="flex flex-col items-center">
+                <i class="fas fa-calendar-day text-xl"></i>
+                <span class="text-xs mt-1">行程</span>
+            </button>
+            <button @click="activeTab = 'finance'" :class="activeTab === 'finance' ? 'text-blue-600' : 'text-gray-400'" class="flex flex-col items-center">
+                <i class="fas fa-wallet text-xl"></i>
+                <span class="text-xs mt-1">記帳</span>
+            </button>
+            <button @click="activeTab = 'lists'" :class="activeTab === 'lists' ? 'text-blue-600' : 'text-gray-400'" class="flex flex-col items-center">
+                <i class="fas fa-tasks text-xl"></i>
+                <span class="text-xs mt-1">清單</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        const { createApp, ref, computed } = Vue
+
+        createApp({
+            setup() {
+                const activeTab = ref('itinerary')
+                
+                // 行程數據
+                const itinerary = ref([
+                    { time: '09:00', location: '香港國際機場' },
+                    { time: '12:00', location: '中環蘭芳園' },
+                    { time: '15:00', location: '太平山頂' }
+                ])
+
+                // 記帳數據
+                const expenses = ref([])
+                const newExpense = ref({ item: '', amount: null, method: '現金' })
+                const totalExpense = computed(() => expenses.value.reduce((sum, exp) => sum + exp.amount, 0))
+
+                // 行李/購物清單
+                const packingList = ref([
+                    { name: '護照', done: false },
+                    { name: '充電器', done: false },
+                    { name: '換洗衣物', done: false }
+                ])
+
+                const addExpense = () => {
+                    if (newExpense.value.item && newExpense.value.amount) {
+                        expenses.value.push({ ...newExpense.value })
+                        newExpense.value = { item: '', amount: null, method: '現金' }
+                    }
+                }
+
+                const openMap = (location) => {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(location)}`, '_blank')
+                }
+
+                return { activeTab, itinerary, expenses, newExpense, totalExpense, packingList, addExpense, openMap }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
+
